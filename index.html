@@ -1,55 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Simple Music Player</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Music</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+
     body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #f4f4f4;
-      padding-top: 50px;
+      background: #000;
+      min-height: 100vh;
+      display: flex; justify-content: center; align-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      color: #fff;
     }
+
     .player {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      width: 300px;
-      margin: auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 340px;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 0 48px;
     }
-    button {
-      margin: 10px;
-      padding: 10px 15px;
-      font-size: 16px;
-      cursor: pointer;
+
+    .album-art {
+      width: 280px; height: 280px;
+      border-radius: 12px;
+      object-fit: cover;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      transform: scale(0.88);
+      transition: transform 0.5s cubic-bezier(0.34, 1.3, 0.64, 1);
+      margin-bottom: 32px;
     }
+    .player.playing .album-art { transform: scale(1); }
+
+    .song-info {
+      width: 100%;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; padding: 0 4px;
+    }
+    .song-text .title  { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+    .song-text .artist { font-size: 15px; color: #fc3c44; font-weight: 400; margin-top: 2px; }
+
+    .heart-btn { background: none; border: none; cursor: pointer; color: #444; transition: color 0.2s; }
+    .heart-btn.liked { color: #fc3c44; }
+    .heart-btn svg { width: 22px; height: 22px; fill: currentColor; display: block; }
+
+    .progress-section { width: 100%; margin-bottom: 24px; }
+    .track-wrap {
+      position: relative; height: 4px;
+      background: #2a2a2a; border-radius: 2px; cursor: pointer;
+    }
+    .track-fill {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: #fff; border-radius: 2px; width: 0%;
+      pointer-events: none;
+    }
+    .track-thumb {
+      position: absolute; top: 50%; left: 0%;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff;
+      transform: translate(-50%, -50%) scale(0);
+      pointer-events: none;
+      transition: transform 0.15s;
+    }
+    .track-wrap:hover .track-thumb,
+    .track-wrap.dragging .track-thumb { transform: translate(-50%, -50%) scale(1); }
+    .track-range {
+      position: absolute; inset: -10px 0; width: 100%;
+      opacity: 0; cursor: pointer; -webkit-appearance: none; appearance: none;
+      height: calc(100% + 20px);
+    }
+    .track-range::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; }
+    .time-row { display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; color: #555; margin-top: 6px; }
+
+    .controls-main {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; margin-bottom: 28px; padding: 0 8px;
+    }
+    .btn { background: none; border: none; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; transition: opacity 0.15s; }
+    .btn:active { opacity: 0.4; }
+    .btn svg { fill: currentColor; display: block; }
+    .play-btn svg { width: 44px; height: 44px; }
+    #playIcon { margin-left: 4px; }
+    .skip-btn svg { width: 34px; height: 34px; }
+
+    .controls-bottom {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; padding: 0 4px;
+    }
+    .icon-btn { background: none; border: none; cursor: pointer; color: #444; transition: color 0.2s; display: flex; align-items: center; justify-content: center; }
+    .icon-btn svg { width: 20px; height: 20px; fill: currentColor; display: block; }
+    .icon-btn.active { color: #fff; }
+
+    .vol-wrap { display: flex; align-items: center; gap: 6px; flex: 1; max-width: 120px; }
+    .vol-icon svg { width: 14px; height: 14px; fill: #444; display: block; }
+    .vol-track { position: relative; flex: 1; height: 3px; background: #2a2a2a; border-radius: 2px; cursor: pointer; }
+    .vol-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #555; border-radius: 2px; width: 80%; pointer-events: none; }
+    .vol-range { position: absolute; inset: -8px 0; width: 100%; opacity: 0; cursor: pointer; -webkit-appearance: none; appearance: none; height: calc(100% + 16px); }
+    .vol-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; }
+
+    .dl-link { text-decoration: none; color: #444; display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
+    .dl-link svg { width: 20px; height: 20px; fill: currentColor; display: block; }
+
+    .share-btn { background: none; border: none; cursor: pointer; color: #444; display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
+    .share-btn svg { width: 20px; height: 20px; display: block; }
   </style>
 </head>
 <body>
 
-  <div class="player">
-    <h2>🎵 Music Player</h2>
-    
-    <audio id="audio" src="Gata only (dsvcr remix _ extended) - floyymenor [edit audio](MP3_320K).mp3"></audio>
+<div class="player" id="player">
 
-    <div>
-      <button onclick="playMusic()">▶ Play</button>
-      <button onclick="pauseMusic()">⏸ Pause</button>
+  <img src="logo01.jpg" alt="Album Art" class="album-art" />
+
+  <div class="song-info">
+    <div class="song-text">
+      <div class="title">Our Favorite Song</div>
+      <div class="artist">Apple Music Style</div>
+    </div>
+    <button class="heart-btn" id="heartBtn">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    </button>
+  </div>
+
+  <div class="progress-section">
+    <div class="track-wrap" id="trackWrap">
+      <div class="track-fill" id="trackFill"></div>
+      <div class="track-thumb" id="trackThumb"></div>
+      <input type="range" class="track-range" id="trackRange" min="0" max="100" step="0.01" value="0" />
+    </div>
+    <div class="time-row">
+      <span id="currentTime">0:00</span>
+      <span id="duration">0:00</span>
     </div>
   </div>
 
-  <script>
-    const audio = document.getElementById("audio");
+  <div class="controls-main">
+    <button class="btn skip-btn" id="rewindBtn">
+      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+    </button>
+    <button class="btn play-btn" id="playBtn">
+      <svg id="playIcon"  viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button class="btn skip-btn" id="forwardBtn">
+      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    </button>
+  </div>
 
-    function playMusic() {
-      audio.play();
-    }
+  <div class="controls-bottom">
+    <button class="icon-btn" id="repeatBtn">
+      <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+    </button>
 
-    function pauseMusic() {
-      audio.pause();
-    }
-  </script>
+    <div class="vol-wrap">
+      <span class="vol-icon"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg></span>
+      <div class="vol-track">
+        <div class="vol-fill" id="volFill"></div>
+        <input type="range" class="vol-range" id="volRange" min="0" max="1" step="0.01" value="0.8" />
+      </div>
+      <span class="vol-icon"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></span>
+    </div>
 
+    <button class="share-btn" id="shareBtn">
+      <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+        <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+      </svg>
+    </button>
+
+    <a href="song02.m4a" download class="dl-link">
+      <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+    </a>
+  </div>
+
+  <audio id="audio" src="song02.m4a" preload="auto" autoplay></audio>
+</div>
+
+<script>
+  const audio     = document.getElementById('audio');
+  const player    = document.getElementById('player');
+  const playBtn   = document.getElementById('playBtn');
+  const playIcon  = document.getElementById('playIcon');
+  const pauseIcon = document.getElementById('pauseIcon');
+  const trackWrap = document.getElementById('trackWrap');
+  const trackFill = document.getElementById('trackFill');
+  const trackThumb= document.getElementById('trackThumb');
+  const trackRange= document.getElementById('trackRange');
+  const volRange  = document.getElementById('volRange');
+  const volFill   = document.getElementById('volFill');
+  const heartBtn  = document.getElementById('heartBtn');
+
+  // Autoplay: try immediately, fall back to first interaction
+  function tryAutoplay() {
+    audio.play().catch(() => {
+      const unlock = () => { audio.play().catch(()=>{}); };
+      document.addEventListener("click", unlock, { once: true });
+      document.addEventListener("touchstart", unlock, { once: true, passive: true });
+    });
+  }
+  window.addEventListener("load", tryAutoplay);
+
+  const fmt = s => { if(isNaN(s)||s<0) return '0:00'; const m=Math.floor(s/60),sc=Math.floor(s%60); return `${m}:${sc<10?'0':''}${sc}`; };
+
+  function setPct(pct) {
+    const p = Math.max(0, Math.min(100, pct));
+    trackFill.style.width = p + '%';
+    trackThumb.style.left = p + '%';
+  }
+
+  function togglePlay() { audio.paused ? audio.play().catch(()=>{}) : audio.pause(); }
+
+  audio.addEventListener('play',  () => { player.classList.add('playing');    playIcon.style.display='none';  pauseIcon.style.display='block'; });
+  audio.addEventListener('pause', () => { player.classList.remove('playing'); playIcon.style.display='block'; pauseIcon.style.display='none';  });
+  audio.addEventListener('ended', () => { player.classList.remove('playing'); setPct(0); trackRange.value=0; document.getElementById('currentTime').textContent='0:00'; });
+
+  playBtn.addEventListener('click', () => { playBtn.blur(); togglePlay(); });
+
+  function onMeta() { document.getElementById('duration').textContent = fmt(audio.duration); trackRange.max = audio.duration; }
+  audio.addEventListener('loadedmetadata', onMeta);
+  if (audio.readyState >= 1) onMeta();
+
+  let scrubbing = false;
+  audio.addEventListener('timeupdate', () => {
+    if (scrubbing) return;
+    const dur = audio.duration || 0;
+    setPct(dur ? (audio.currentTime / dur) * 100 : 0);
+    trackRange.value = audio.currentTime;
+    document.getElementById('currentTime').textContent = fmt(audio.currentTime);
+  });
+
+  trackRange.addEventListener('mousedown',  () => { scrubbing = true;  trackWrap.classList.add('dragging'); });
+  trackRange.addEventListener('touchstart', () => { scrubbing = true;  trackWrap.classList.add('dragging'); }, { passive: true });
+  function stopScrub() {
+    if (!scrubbing) return;
+    scrubbing = false; trackWrap.classList.remove('dragging');
+    audio.currentTime = parseFloat(trackRange.value);
+  }
+  window.addEventListener('mouseup', stopScrub);
+  window.addEventListener('touchend', stopScrub);
+  trackRange.addEventListener('input', () => {
+    const dur = audio.duration || 1;
+    setPct((parseFloat(trackRange.value) / dur) * 100);
+    document.getElementById('currentTime').textContent = fmt(parseFloat(trackRange.value));
+  });
+
+  document.getElementById('rewindBtn').addEventListener('click',  () => { audio.currentTime = Math.max(0, audio.currentTime - 15); });
+  document.getElementById('forwardBtn').addEventListener('click', () => { audio.currentTime = Math.min(audio.duration||0, audio.currentTime + 15); });
+  document.getElementById('repeatBtn').addEventListener('click',  e => { audio.loop = !audio.loop; e.currentTarget.classList.toggle('active'); });
+
+  audio.volume = parseFloat(volRange.value);
+  volFill.style.width = (audio.volume * 100) + '%';
+  volRange.addEventListener('input', e => { audio.volume = e.target.value; volFill.style.width = (e.target.value * 100) + '%'; });
+
+  let liked = false;
+  heartBtn.addEventListener('click', () => { liked = !liked; heartBtn.classList.toggle('liked', liked); });
+
+  document.getElementById('shareBtn').addEventListener('click', async () => {
+    if (navigator.share) { try { await navigator.share({ title: 'Our Favorite Song', url: location.href }); } catch {} }
+    else { await navigator.clipboard.writeText(location.href).catch(()=>{}); }
+  });
+
+  window.addEventListener('keydown', e => {
+    if (document.activeElement.tagName === 'INPUT') return;
+    if (e.code === 'Space')      { e.preventDefault(); togglePlay(); }
+    if (e.code === 'ArrowRight') { e.preventDefault(); audio.currentTime = Math.min(audio.duration||0, audio.currentTime+15); }
+    if (e.code === 'ArrowLeft')  { e.preventDefault(); audio.currentTime = Math.max(0, audio.currentTime-15); }
+    if (e.code === 'ArrowUp')    { e.preventDefault(); audio.volume=Math.min(1,audio.volume+0.05); volRange.value=audio.volume; volFill.style.width=(audio.volume*100)+'%'; }
+    if (e.code === 'ArrowDown')  { e.preventDefault(); audio.volume=Math.max(0,audio.volume-0.05); volRange.value=audio.volume; volFill.style.width=(audio.volume*100)+'%'; }
+  });
+</script>
 </body>
 </html>
