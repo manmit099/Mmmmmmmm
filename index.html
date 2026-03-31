@@ -2,783 +2,1026 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Music</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+  <title>ARCADE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
-
-    body {
-      background: #000;
-      min-height: 100vh;
-      display: flex; justify-content: center; align-items: flex-start;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-      color: #fff;
-      overflow-x: hidden;
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#000;--fg:#fff;--dim:#222;--mid:#555;
+      --a1:#e8ff57;  /* runner accent - yellow  */
+      --a2:#57e8ff;  /* brix accent   - cyan    */
+      --accent:var(--a1);
+      --btn-h:88px;
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+    html,body{
+      background:var(--bg);color:var(--fg);
+      font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+      height:100%;overflow:hidden;
+      touch-action:none;user-select:none;-webkit-user-select:none;
+    }
+    #app{
+      display:flex;flex-direction:column;align-items:center;
+      width:100%;height:100dvh;overflow:hidden;
     }
 
-    /* ── Outer scroll wrapper ── */
-    .page { width: 100%; max-width: 400px; padding: 32px 30px 60px; }
+    /* ── TOP BAR ── */
+    #topbar{
+      width:100%;max-width:480px;
+      display:flex;justify-content:space-between;align-items:center;
+      padding:14px 18px 6px;flex-shrink:0;
+    }
+    #game-title{
+      font-family:'Press Start 2P',monospace;font-size:9px;
+      color:var(--accent);letter-spacing:.05em;
+      text-shadow:0 0 10px var(--accent);
+      transition:color .4s,text-shadow .4s;
+    }
+    #topright{display:flex;align-items:center;gap:10px}
+    #score-display{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--mid)}
+    #score-display span{color:var(--fg)}
+    #lives{display:flex;gap:5px;align-items:center}
+    .life-pip{
+      width:7px;height:7px;border-radius:50%;
+      background:var(--accent);box-shadow:0 0 6px var(--accent);
+      transition:background .2s,box-shadow .2s,all .4s;
+    }
+    .life-pip.dead{background:#222;box-shadow:none}
 
-    /* ── Album art ── */
-    .album-wrap { position: relative; margin-bottom: 16px; }
-    .album-art {
-      width: 100%; aspect-ratio: 1;
-      border-radius: 14px; object-fit: cover;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.8);
-      transform: scale(0.9);
-      transition: transform 0.55s cubic-bezier(0.34,1.3,0.64,1);
-      display: block;
+    /* menu button */
+    #menu-btn{
+      font-family:'Press Start 2P',monospace;font-size:7px;
+      color:#444;background:none;border:none;cursor:pointer;
+      letter-spacing:.05em;padding:4px 6px;
+      -webkit-tap-highlight-color:transparent;
+      transition:color .2s;
     }
-    .playing .album-art { transform: scale(1); }
+    #menu-btn:active{color:var(--mid)}
+    #menu-btn.hidden{display:none}
 
+    /* ── CANVAS WRAP ── */
+    #canvas-wrap{
+      width:100%;max-width:480px;
+      flex:1 1 auto;min-height:0;
+      display:flex;align-items:center;justify-content:center;
+      padding:0 8px;position:relative;
+    }
+    #game-canvas{
+      display:block;width:100%;aspect-ratio:1/1;max-height:100%;
+      background:#000;border-radius:20px;
+      border:1px solid #181818;
+      box-shadow:0 0 0 1px #111,0 0 50px rgba(0,0,0,.8);
+      image-rendering:pixelated;
+    }
 
-    /* ── Song info ── */
-    .song-info {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 16px; padding: 0 2px;
+    /* ── OVERLAY ── */
+    #overlay{
+      position:absolute;inset:0;border-radius:20px;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:14px;background:rgba(0,0,0,.85);
+      backdrop-filter:blur(3px);transition:opacity .35s;
     }
-    .song-text { flex: 1; min-width: 0; }
-    .song-text .title  { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    /* remove artist subheading completely */
-    .song-text .artist { display: none; }
+    #overlay.hidden{opacity:0;pointer-events:none}
+    #overlay-title{
+      font-family:'Press Start 2P',monospace;
+      font-size:clamp(13px,4vw,21px);
+      color:var(--accent);text-align:center;line-height:1.65;
+      text-shadow:0 0 22px var(--accent);
+      transition:color .4s,text-shadow .4s;
+    }
+    #overlay-sub{
+      font-family:'Press Start 2P',monospace;
+      font-size:clamp(6px,1.8vw,9px);
+      color:var(--mid);text-align:center;line-height:2;
+    }
+    #overlay-score{
+      font-family:'Press Start 2P',monospace;
+      font-size:clamp(7px,2.2vw,11px);color:var(--fg);
+    }
+    .blink{animation:blink 1.1s step-end infinite}
+    @keyframes blink{50%{opacity:0}}
 
-    .heart-btn { background: none; border: none; cursor: pointer; color: #444; flex-shrink: 0; margin-left: 10px; transition: color 0.2s, transform 0.15s; }
-    .heart-btn.liked { color: #fc3c44; }
-    .heart-btn:active { transform: scale(0.8); }
-    .heart-btn svg { width: 22px; height: 22px; fill: currentColor; display: block; }
+    /* ── SCANLINES ── */
+    #scanlines{
+      position:absolute;inset:0;border-radius:20px;pointer-events:none;
+      background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);
+    }
 
-    /* ── Lyrics panel ── */
-    .lyrics-panel {
-      background: #111; border-radius: 12px; overflow: hidden;
-      max-height: 0; transition: max-height 0.4s ease, margin 0.3s;
-      margin-bottom: 0;
+    /* ── CONTROLS ── */
+    #controls{
+      width:100%;max-width:480px;
+      display:grid;grid-template-columns:1fr 1fr;
+      gap:10px;padding:10px 12px calc(10px + var(--safe-bottom));
+      flex-shrink:0;
     }
-    .lyrics-panel.open { max-height: 120px; margin-bottom: 16px; }
-    .lyrics-scroll { height: 120px; overflow-y: auto; padding: 14px 16px; scroll-behavior: smooth; }
-    .lyrics-scroll::-webkit-scrollbar { display: none; }
-    .lyric-line {
-      font-size: 13px; line-height: 1.7; color: #555;
-      transition: color 0.3s, font-weight 0.3s;
-      padding: 1px 0;
+    .btn{
+      height:var(--btn-h);border-radius:22px;
+      border:1.5px solid #222;background:#0d0d0d;color:var(--fg);
+      cursor:pointer;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:5px;
+      -webkit-tap-highlight-color:transparent;
+      transition:background .08s,border-color .1s,transform .06s,box-shadow .1s;
+      position:relative;overflow:hidden;
     }
-    .lyric-line.active { color: #fff; font-weight: 600; font-size: 14px; }
+    .btn::before{
+      content:'';position:absolute;inset:0;border-radius:inherit;
+      background:linear-gradient(180deg,rgba(255,255,255,.045) 0%,transparent 55%);
+      pointer-events:none;
+    }
+    .btn:active,.btn.pressed{
+      background:#181818;border-color:var(--accent);
+      transform:scale(0.955);
+      box-shadow:0 0 0 1px var(--accent),0 0 18px color-mix(in srgb,var(--accent) 20%,transparent);
+    }
+    .btn-icon{font-size:27px;line-height:1;transition:transform .1s}
+    .btn.pressed .btn-icon{transform:scale(.88)}
+    .btn-label{font-family:'Press Start 2P',monospace;font-size:7px;color:var(--mid);letter-spacing:.1em}
 
-    /* ── Progress ── */
-    .progress-section { margin-bottom: 22px; }
-    .track-wrap {
-      position: relative; height: 4px;
-      background: #2a2a2a; border-radius: 2px; cursor: pointer;
-    }
-    .track-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #fff; border-radius: 2px; width: 0%; pointer-events: none; }
-    .track-thumb {
-      position: absolute; top: 50%; left: 0%;
-      width: 14px; height: 14px; border-radius: 50%; background: #fff;
-      transform: translate(-50%,-50%) scale(0); pointer-events: none; transition: transform 0.15s;
-    }
-    .track-wrap:hover .track-thumb, .track-wrap.dragging .track-thumb { transform: translate(-50%,-50%) scale(1); }
-    .track-range {
-      position: absolute; inset: -10px 0; width: 100%;
-      opacity: 0; cursor: pointer; -webkit-appearance: none; appearance: none; height: calc(100% + 20px);
-    }
-    .track-range::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; }
-    .time-row { display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; color: #555; margin-top: 6px; }
-
-    /* ── Main controls ── */
-    .controls-main {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 24px; padding: 0 4px;
-    }
-    .btn { background: none; border: none; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center; transition: opacity 0.15s; }
-    .btn:active { opacity: 0.4; }
-    .btn svg { fill: currentColor; display: block; }
-    .play-btn svg { width: 46px; height: 46px; }
-    #playIcon { margin-left: 4px; }
-    .skip-btn svg { width: 32px; height: 32px; }
-
-    /* ── Bottom row 1: shuffle / repeat / speed / sleep ── */
-    .controls-extras {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 20px; padding: 0 2px;
-    }
-    .icon-btn { background: none; border: none; cursor: pointer; color: #444; display: flex; align-items: center; justify-content: center; transition: color 0.2s; padding: 4px; }
-    .icon-btn svg { width: 20px; height: 20px; fill: currentColor; display: block; }
-    .icon-btn.active { color: #fff; }
-    .icon-btn:active { opacity: 0.5; }
-
-    /* Speed pill */
-    .speed-btn {
-      background: none; border: 1px solid #333; cursor: pointer; color: #444;
-      border-radius: 6px; padding: 3px 7px; font-size: 12px; font-weight: 600;
-      transition: color 0.2s, border-color 0.2s; font-family: inherit;
-    }
-    .speed-btn.active { color: #fff; border-color: #fff; }
-
-    /* Sleep badge */
-    .sleep-badge {
-      font-size: 11px; font-weight: 600; color: #fc3c44;
-      background: rgba(252,60,68,0.12); border-radius: 5px; padding: 2px 6px;
-      display: none;
-    }
-    .sleep-badge.visible { display: inline-block; }
-
-    /* ── Volume row ── */
-    .vol-row { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-    .vol-icon svg { width: 15px; height: 15px; fill: #444; display: block; }
-    .vol-track { position: relative; flex: 1; height: 3px; background: #2a2a2a; border-radius: 2px; cursor: pointer; }
-    .vol-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #555; border-radius: 2px; pointer-events: none; }
-    .vol-range { position: absolute; inset: -8px 0; width: 100%; opacity: 0; cursor: pointer; -webkit-appearance: none; appearance: none; height: calc(100% + 16px); }
-    .vol-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; }
-
-    /* ── Playlist ── */
-    .playlist-label { font-size: 11px; font-weight: 600; color: #555; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 10px; padding: 0 2px; }
-    .playlist { display: flex; flex-direction: column; gap: 2px; }
-    .pl-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 10px; border-radius: 10px; cursor: pointer;
-      transition: background 0.15s;
-    }
-    .pl-item:hover { background: #111; }
-    .pl-item.active { background: #111; }
-    .pl-thumb {
-      width: 44px; height: 44px; border-radius: 6px; object-fit: cover; flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    }
-    .pl-info { flex: 1; min-width: 0; }
-    .pl-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    /* remove artist line in playlist as well */
-    .pl-artist { display: none; }
-    .pl-item.active .pl-title { color: #fc3c44; }
-    .pl-dur { font-size: 12px; color: #444; flex-shrink: 0; }
-
-    /* ── Modals ── */
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-      display: flex; align-items: flex-end; justify-content: center;
-      z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.25s;
-    }
-    .modal-overlay.open { opacity: 1; pointer-events: all; }
-    .modal-sheet {
-      background: #1c1c1e; border-radius: 20px 20px 0 0;
-      width: 100%; max-width: 400px; padding: 20px 24px 40px;
-      transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
-    }
-    .modal-overlay.open .modal-sheet { transform: translateY(0); }
-    .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 20px; text-align: center; }
-    .modal-close { position: absolute; top: 16px; right: 20px; background: none; border: none; color: #888; cursor: pointer; font-size: 22px; line-height: 1; }
-
-    /* Speed options */
-    .speed-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
-    .speed-opt {
-      background: #2c2c2e; border: none; border-radius: 10px;
-      color: #fff; font-size: 15px; font-weight: 500;
-      padding: 14px 0; cursor: pointer; font-family: inherit;
-      transition: background 0.15s;
-    }
-    .speed-opt.selected { background: #fc3c44; font-weight: 700; }
-
-    /* Sleep timer options */
-    .sleep-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
-    .sleep-opt {
-      background: #2c2c2e; border: none; border-radius: 10px;
-      color: #fff; font-size: 14px; font-weight: 500;
-      padding: 14px 0; cursor: pointer; font-family: inherit;
-      transition: background 0.15s;
-    }
-    .sleep-opt.selected { background: #fc3c44; }
-    .sleep-off { grid-column: span 3; background: #2c2c2e; border: none; border-radius: 10px; color: #ff453a; font-size: 14px; font-weight: 600; padding: 14px; cursor: pointer; font-family: inherit; }
-
-    /* bottom utils */
-    .utils-row { display: flex; justify-content: space-between; align-items: center; padding: 0 2px; margin-bottom: 28px; }
-    .util-btn { background: none; border: none; cursor: pointer; color: #444; display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
-    .util-btn svg { width: 20px; height: 20px; fill: currentColor; display: block; }
-    .util-btn.active { color: #fff; }
-    .dl-link { text-decoration: none; color: #444; display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
-    .dl-link svg { width: 20px; height: 20px; fill: currentColor; display: block; }
+    /* ── THEME TRANSITIONS ── */
+    .theme-brix{--accent:var(--a2)}
   </style>
 </head>
 <body>
-<div class="page" id="player">
-
-  <!-- Album art + visualizer -->
-  <div class="album-wrap">
-    <img id="albumArt" src="c1.jpg" alt="Album Art" class="album-art"/>
-  </div>
-
-  <!-- Song info -->
-  <div class="song-info">
-    <div class="song-text">
-      <div class="title" id="songTitle">Bairan</div>
-      <div class="artist" id="songArtist"></div>
-    </div>
-    <button class="heart-btn" id="heartBtn">
-      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-    </button>
-  </div>
-
-  <!-- Lyrics panel -->
-  <div class="lyrics-panel" id="lyricsPanel">
-    <div class="lyrics-scroll" id="lyricsScroll"></div>
-  </div>
-
-  <!-- Progress -->
-  <div class="progress-section">
-    <div class="track-wrap" id="trackWrap">
-      <div class="track-fill" id="trackFill"></div>
-      <div class="track-thumb" id="trackThumb"></div>
-      <input type="range" class="track-range" id="trackRange" min="0" max="100" step="0.01" value="0"/>
-    </div>
-    <div class="time-row">
-      <span id="currentTime">0:00</span>
-      <span id="duration">0:00</span>
+<div id="app">
+  <div id="topbar">
+    <button id="menu-btn" class="hidden">MENU</button>
+    <div id="game-title">ARCADE</div>
+    <div id="topright">
+      <div id="lives">
+        <div class="life-pip" id="life0"></div>
+        <div class="life-pip" id="life1"></div>
+        <div class="life-pip" id="life2"></div>
+      </div>
+      <div id="score-display">SCORE <span id="score-val">0</span></div>
     </div>
   </div>
 
-  <!-- Main controls: prev / play / next -->
-  <div class="controls-main">
-    <button class="btn skip-btn" id="prevBtn" title="Previous">
-      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-    </button>
-    <button class="btn play-btn" id="playBtn">
-      <svg id="playIcon"  viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-      <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-    </button>
-    <button class="btn skip-btn" id="nextBtn" title="Next">
-      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-    </button>
-  </div>
-
-  <!-- Extras: shuffle / repeat / speed / lyrics / sleep -->
-  <div class="controls-extras">
-    <button class="icon-btn" id="shuffleBtn" title="Shuffle">
-      <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
-    </button>
-    <button class="icon-btn" id="repeatBtn" title="Repeat">
-      <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
-    </button>
-    <button class="speed-btn" id="speedBtn">1×</button>
-    <button class="icon-btn" id="lyricsBtn" title="Lyrics">
-      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 14v-2.47l6.88-6.88c.2-.2.51-.2.71 0l1.77 1.77c.2.2.2.51 0 .71L8.47 14H6zm12 0h-7.5l2-2H18v2z"/></svg>
-    </button>
-    <button class="icon-btn" id="sleepBtn" title="Sleep Timer">
-      <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
-    </button>
-    <span class="sleep-badge" id="sleepBadge"></span>
-  </div>
-
-  <!-- Volume -->
-  <div class="vol-row">
-    <span class="vol-icon"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg></span>
-    <div class="vol-track">
-      <div class="vol-fill" id="volFill" style="width:80%"></div>
-      <input type="range" class="vol-range" id="volRange" min="0" max="1" step="0.01" value="0.8"/>
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+    <div id="scanlines"></div>
+    <div id="overlay">
+      <div id="overlay-title">ARCADE</div>
+      <div id="overlay-sub"></div>
+      <div id="overlay-score" style="display:none"></div>
     </div>
-    <span class="vol-icon"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></span>
   </div>
 
-  <!-- Utility row: share / download -->
-  <div class="utils-row">
-    <button class="util-btn" id="shareBtn">
-      <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-        <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
-      </svg>
+  <div id="controls">
+    <button class="btn" id="btn-left" aria-label="Left">
+      <div class="btn-icon" id="icon-left">◀</div>
+      <div class="btn-label" id="label-left">LEFT</div>
     </button>
-    <a id="dlLink" href="s1.m4a" download class="dl-link">
-      <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-    </a>
-  </div>
-
-  <!-- Playlist -->
-  <div class="playlist-label">Up Next</div>
-  <div class="playlist" id="playlist"></div>
-
-  <audio id="audio" preload="auto"></audio>
-  <!-- Crossfade audio -->
-  <audio id="audioNext" preload="auto" style="display:none"></audio>
-</div>
-
-<!-- Speed Modal -->
-<div class="modal-overlay" id="speedModal">
-  <div class="modal-sheet" style="position:relative">
-    <div class="modal-title">Playback Speed</div>
-    <button class="modal-close" id="speedModalClose">×</button>
-    <div class="speed-grid" id="speedGrid"></div>
-  </div>
-</div>
-
-<!-- Sleep Timer Modal -->
-<div class="modal-overlay" id="sleepModal">
-  <div class="modal-sheet" style="position:relative">
-    <div class="modal-title">Sleep Timer</div>
-    <button class="modal-close" id="sleepModalClose">×</button>
-    <div class="sleep-grid" id="sleepGrid"></div>
-    <button class="sleep-off" id="sleepOffBtn" style="margin-top:10px">Turn Off</button>
+    <button class="btn" id="btn-right" aria-label="Right">
+      <div class="btn-icon" id="icon-right">▶</div>
+      <div class="btn-label" id="label-right">RIGHT</div>
+    </button>
   </div>
 </div>
 
 <script>
-// ════════════════════════════════════════════
-//  PLAYLIST DATA - updated song titles & removed artist names, respective covers
-// ════════════════════════════════════════════
-const TRACKS = [
-  { title: "Bairan",           artist: "",  src: "s1.m4a",  art: "c1.jpg",
-    lyrics: [
-      { t:0,  text: "♪ The melody begins softly..." },
-      { t:8,  text: "Every note a memory" },
-      { t:16, text: "We dance beneath the moonlight" },
-      { t:24, text: "Our favorite song plays on" },
-      { t:32, text: "♪ The chorus lifts us higher" },
-      { t:40, text: "Voices rising through the night" },
-      { t:48, text: "This is where we belong" },
-      { t:56, text: "In the warmth of this music" },
-      { t:64, text: "♪ Fade back to the verse..." },
-      { t:72, text: "Memories wash over me" },
-      { t:80, text: "Like waves on a summer shore" },
-      { t:90, text: "Our song will last forever" },
-    ]
-  },
-  { title: "Isq risk",         artist: "",  src: "s2.m4a",  art: "c1.jpg",
-    lyrics: [
-      { t:0,  text: "♪ Midnight falls across the city" },
-      { t:10, text: "Echoes drift through empty streets" },
-      { t:20, text: "I hear your voice in the silence" },
-      { t:30, text: "And the night feels incomplete" },
-      { t:40, text: "♪ Reach for me in the darkness" },
-      { t:50, text: "I'll be your guiding light" },
-      { t:60, text: "Until the morning finds us" },
-      { t:70, text: "We'll make it through the night" },
-    ]
-  },
-  { title: "dooron dooron",    artist: "",  src: "s3.m4a",  art: "c1.jpg",
-    lyrics: [
-      { t:0,  text: "♪ Everything glows in golden light" },
-      { t:12, text: "The sky turns amber and rose" },
-      { t:24, text: "We sit here watching the sun dip low" },
-      { t:36, text: "As the warm horizon glows" },
-      { t:48, text: "♪ Hold this moment, let it breathe" },
-      { t:60, text: "Golden hour, don't leave" },
-    ]
-  },
-  { title: "For a reason",     artist: "",  src: "s4.m4a",  art: "c1.jpg",
-    lyrics: [
-      { t:0,  text: "♪ Voltage in the air tonight" },
-      { t:10, text: "Electric blue, so bright" },
-      { t:20, text: "Synth lines cascade like rain" },
-      { t:30, text: "We won't feel this way again" },
-    ]
-  },
-];
+(()=>{
+"use strict";
+// ═══════════════════════════════════════════════════════════
+// SHARED SETUP
+// ═══════════════════════════════════════════════════════════
+const canvas  = document.getElementById("game-canvas");
+const ctx     = canvas.getContext("2d");
+const P       = 400;
+canvas.width  = P;
+canvas.height = P;
 
-// ════════════════════════════════════════════
-//  ELEMENTS
-// ════════════════════════════════════════════
-const audio      = document.getElementById('audio');
-const audioNext  = document.getElementById('audioNext');
-const player     = document.getElementById('player');
-const playBtn    = document.getElementById('playBtn');
-const playIcon   = document.getElementById('playIcon');
-const pauseIcon  = document.getElementById('pauseIcon');
-const trackWrap  = document.getElementById('trackWrap');
-const trackFill  = document.getElementById('trackFill');
-const trackThumb = document.getElementById('trackThumb');
-const trackRange = document.getElementById('trackRange');
-const volRange   = document.getElementById('volRange');
-const volFill    = document.getElementById('volFill');
-const heartBtn   = document.getElementById('heartBtn');
-const albumArt   = document.getElementById('albumArt');
-const songTitle  = document.getElementById('songTitle');
-const songArtist = document.getElementById('songArtist');
-const lyricsPanel= document.getElementById('lyricsPanel');
-const lyricsScroll=document.getElementById('lyricsScroll');
-const sleepBadge = document.getElementById('sleepBadge');
-const speedBtn   = document.getElementById('speedBtn');
-const dlLink     = document.getElementById('dlLink');
+const appEl     = document.getElementById("app");
+const overlay   = document.getElementById("overlay");
+const ovTitle   = document.getElementById("overlay-title");
+const ovSub     = document.getElementById("overlay-sub");
+const ovScore   = document.getElementById("overlay-score");
+const titleEl   = document.getElementById("game-title");
+const menuBtn   = document.getElementById("menu-btn");
+const scoreVal  = document.getElementById("score-val");
+const livesEl   = document.getElementById("lives");
+const btnLeft   = document.getElementById("btn-left");
+const btnRight  = document.getElementById("btn-right");
+const iconLeft  = document.getElementById("icon-left");
+const iconRight = document.getElementById("icon-right");
+const labelLeft = document.getElementById("label-left");
+const labelRight= document.getElementById("label-right");
 
-// ════════════════════════════════════════════
-//  STATE
-// ════════════════════════════════════════════
-let currentIdx   = 0;
-let shuffleOn    = false;
-let repeatOn     = false;
-let lyricsOpen   = false;
-let liked        = false;
-let scrubbing    = false;
-let sleepTimer   = null;
-let sleepSeconds = 0;
-let sleepInterval= null;
-let currentSpeed = 1;
-let shuffleOrder = [];
-let crossfading  = false;
+// ── GLOBAL STATE ──
+const SCENE = { MENU:0, RUNNER:1, BRIX:2 };
+let scene    = SCENE.MENU;
+const STATE  = { IDLE:0, PLAY:1, OVER:2 };
+let state    = STATE.IDLE;
 
-const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-const SLEEP_OPTS = [5, 10, 15, 20, 30, 45]; // minutes
+let leftDown  = false;
+let rightDown = false;
+let frame     = 0;
 
-// ════════════════════════════════════════════
-//  HELPERS
-// ════════════════════════════════════════════
-const fmt = s => { if(isNaN(s)||s<0) return '0:00'; const m=Math.floor(s/60),sc=Math.floor(s%60); return `${m}:${sc<10?'0':''}${sc}`; };
-const setPct = pct => { const p=Math.max(0,Math.min(100,pct)); trackFill.style.width=p+'%'; trackThumb.style.left=p+'%'; };
-
-// ════════════════════════════════════════════
-//  LOAD TRACK
-// ════════════════════════════════════════════
-function loadTrack(idx, autoplay=true) {
-  currentIdx = idx;
-  const t = TRACKS[idx];
-  audio.src    = t.src;
-  audio.load();
-  albumArt.src = t.art;
-  songTitle.textContent  = t.title;
-  songArtist.textContent = t.artist;  // empty string
-  dlLink.href = t.src;
-  dlLink.download = t.src;
-  setPct(0); trackRange.value=0;
-  document.getElementById('currentTime').textContent='0:00';
-  document.getElementById('duration').textContent='0:00';
-  liked = false; heartBtn.classList.remove('liked');
-  renderLyrics();
-  renderPlaylist();
-  updateMediaSession();
-  if (autoplay) audio.play().catch(()=>{});
-  preloadNext();
+// ── OVERLAY HELPERS ──
+function showOverlay(title, sub, scoreStr) {
+  ovTitle.innerHTML = title;
+  ovSub.innerHTML   = sub;
+  if (scoreStr) { ovScore.style.display=""; ovScore.textContent = scoreStr; }
+  else            { ovScore.style.display="none"; }
+  overlay.classList.remove("hidden");
 }
+function hideOverlay() { overlay.classList.add("hidden"); }
 
-function preloadNext() {
-  const nextIdx = getNextIdx(false);
-  if (nextIdx !== null) { audioNext.src = TRACKS[nextIdx].src; audioNext.load(); }
+// ── LIVES UI ──
+const LIVES_MAX = 3;
+function updateLivesUI(n) {
+  for (let i=0;i<LIVES_MAX;i++)
+    document.getElementById("life"+i).classList.toggle("dead", i>=n);
 }
+function updateScoreUI(n) { scoreVal.textContent = Math.floor(n); }
 
-// ════════════════════════════════════════════
-//  PLAY / PAUSE
-// ════════════════════════════════════════════
-function togglePlay() { audio.paused ? audio.play().catch(()=>{}) : audio.pause(); }
+// ── THEME ──
+function setTheme(t) {
+  const isMenu   = t === "menu";
+  const isBrix   = t === "brix";
+  const isRunner = t === "runner";
 
-audio.addEventListener('play', () => {
-  player.classList.add('playing');
-  playIcon.style.display='none'; pauseIcon.style.display='block';
-  updateMediaSession();
-});
-audio.addEventListener('pause', () => {
-  player.classList.remove('playing');
-  playIcon.style.display='block'; pauseIcon.style.display='none';
-});
-audio.addEventListener('ended', () => {
-  if (repeatOn) { audio.currentTime=0; audio.play().catch(()=>{}); }
-  else goNext();
-});
+  appEl.style.setProperty("--accent", isBrix ? "var(--a2)" : "var(--a1)");
+  ovTitle.style.color = isBrix ? "var(--a2)" : "var(--a1)";
+  ovTitle.style.textShadow = isBrix
+    ? "0 0 22px var(--a2)" : "0 0 22px var(--a1)";
 
-playBtn.addEventListener('click', () => { playBtn.blur(); togglePlay(); });
-
-// ════════════════════════════════════════════
-//  PREV / NEXT
-// ════════════════════════════════════════════
-function getNextIdx(advance=true) {
-  if (shuffleOn) {
-    if (!shuffleOrder.length) buildShuffle();
-    if (!shuffleOrder.length) return null;
-    return advance ? shuffleOrder.pop() : shuffleOrder[shuffleOrder.length-1] ?? null;
+  if (isMenu) {
+    titleEl.textContent = "ARCADE";
+    iconLeft.textContent  = "◀";
+    iconRight.textContent = "▶";
+    labelLeft.textContent  = "SELECT";
+    labelRight.textContent = "SELECT";
+    menuBtn.classList.add("hidden");
+    updateLivesUI(0);
+    updateScoreUI(0);
+  } else if (isRunner) {
+    titleEl.textContent = "VOID RUNNER";
+    iconLeft.textContent  = "▲";
+    iconRight.textContent = "▼";
+    labelLeft.textContent  = "JUMP";
+    labelRight.textContent = "DUCK";
+    menuBtn.classList.remove("hidden");
+  } else {
+    titleEl.textContent = "BRIX";
+    iconLeft.textContent  = "◀";
+    iconRight.textContent = "▶";
+    labelLeft.textContent  = "LEFT";
+    labelRight.textContent = "RIGHT";
+    menuBtn.classList.remove("hidden");
   }
-  return (currentIdx + 1) % TRACKS.length;
 }
 
-function buildShuffle() {
-  shuffleOrder = TRACKS.map((_,i)=>i).filter(i=>i!==currentIdx).sort(()=>Math.random()-0.5);
+// ═══════════════════════════════════════════════════════════
+// MENU
+// ═══════════════════════════════════════════════════════════
+const menuStars = Array.from({length:60},()=>({
+  x:Math.random()*P, y:Math.random()*P,
+  r:Math.random()*1.3+.2,
+  speed:Math.random()*.3+.05,
+  alpha:Math.random()*.6+.2,
+}));
+
+function drawMenu() {
+  ctx.clearRect(0,0,P,P);
+  // bg
+  ctx.fillStyle="#000";
+  ctx.fillRect(0,0,P,P);
+
+  // stars
+  for(const s of menuStars){
+    ctx.globalAlpha=s.alpha*(0.5+0.5*Math.sin(frame*.03+s.x*.05));
+    ctx.fillStyle="#fff";
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+    s.x -= s.speed;
+    if(s.x<0){s.x=P;s.y=Math.random()*P;}
+  }
+  ctx.globalAlpha=1;
+
+  // divider
+  ctx.strokeStyle="#1a1a1a";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(P/2,20);ctx.lineTo(P/2,P-20);ctx.stroke();
+
+  // ── LEFT: VOID RUNNER ──
+  drawMenuCard(0, 0, P/2, P, "#e8ff57", "VOID\nRUNNER", drawRunnerPreview, "JUMP\nDUCK");
+
+  // ── RIGHT: BRIX ──
+  drawMenuCard(P/2, 0, P/2, P, "#57e8ff", "BRIX", drawBrixPreview, "LEFT\nRIGHT");
 }
 
-function goNext() {
-  const idx = getNextIdx(true);
-  if (idx === null) return;
-  if (crossfading) startCrossfade(idx); else loadTrack(idx);
-}
-function goPrev() {
-  if (audio.currentTime > 3) { audio.currentTime=0; return; }
-  const idx = shuffleOn ? currentIdx : (currentIdx-1+TRACKS.length)%TRACKS.length;
-  loadTrack(idx);
+function drawMenuCard(x,y,w,h,col,title,previewFn,hint) {
+  ctx.save();
+  ctx.translate(x,y);
+
+  // subtle bg glow
+  const g=ctx.createRadialGradient(w/2,h/2,10,w/2,h/2,h*.6);
+  g.addColorStop(0,col+"0a");g.addColorStop(1,"transparent");
+  ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+
+  // preview area
+  const previewH = h * 0.42;
+  const previewY = h * 0.22;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(8,previewY,w-16,previewH);
+  ctx.clip();
+  previewFn(8,previewY,w-16,previewH,col);
+  ctx.restore();
+
+  // title
+  ctx.font="bold 10px 'Press Start 2P',monospace";
+  ctx.fillStyle=col;
+  ctx.textAlign="center";
+  ctx.shadowColor=col;ctx.shadowBlur=14;
+  const lines=title.split("\n");
+  lines.forEach((l,i)=>{
+    ctx.fillText(l,w/2, h*0.16 + i*16);
+  });
+  ctx.shadowBlur=0;
+
+  // hint
+  ctx.font="6px 'Press Start 2P',monospace";
+  ctx.fillStyle="#444";
+  ctx.shadowBlur=0;
+  const hintLines=hint.split("\n");
+  hintLines.forEach((l,i)=>{
+    ctx.fillText(l,w/2, h*0.76 + i*12);
+  });
+
+  // pulse arrow
+  const pulse=0.5+0.5*Math.sin(frame*.08);
+  ctx.font="13px monospace";
+  ctx.fillStyle=col;
+  ctx.globalAlpha=pulse;
+  ctx.fillText("▼",w/2, h*0.9);
+  ctx.globalAlpha=1;
+
+  ctx.restore();
 }
 
-document.getElementById('nextBtn').addEventListener('click', goNext);
-document.getElementById('prevBtn').addEventListener('click', goPrev);
+function drawRunnerPreview(x,y,w,h,col) {
+  // mini ground
+  const gy = y+h*0.78;
+  ctx.strokeStyle="#333";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(x,gy);ctx.lineTo(x+w,gy);ctx.stroke();
 
-// ════════════════════════════════════════════
-//  CROSSFADE
-// ════════════════════════════════════════════
-const FADE_DURATION = 3; // seconds
-function startCrossfade(nextIdx) {
-  if (!audio.duration) { loadTrack(nextIdx); return; }
-  audioNext.src    = TRACKS[nextIdx].src;
-  audioNext.volume = 0;
-  audioNext.currentTime = 0;
-  audioNext.playbackRate = currentSpeed;
-  audioNext.play().catch(()=>{});
-  const startVol = audio.volume;
-  const startTime = performance.now();
-  function fade() {
-    const elapsed = (performance.now()-startTime)/1000;
-    const ratio = Math.min(elapsed/FADE_DURATION, 1);
-    audio.volume = startVol * (1-ratio);
-    audioNext.volume = startVol * ratio;
-    if (ratio < 1) { requestAnimationFrame(fade); }
-    else {
-      audio.pause(); audio.volume = startVol;
-      audio.src = TRACKS[nextIdx].src; audio.load();
-      audio.volume = startVol; audio.currentTime = audioNext.currentTime;
-      audioNext.pause(); audioNext.src='';
-      currentIdx = nextIdx;
-      albumArt.src = TRACKS[nextIdx].art;
-      songTitle.textContent  = TRACKS[nextIdx].title;
-      songArtist.textContent = TRACKS[nextIdx].artist;
-      dlLink.href = TRACKS[nextIdx].src;
-      liked=false; heartBtn.classList.remove('liked');
-      renderLyrics(); renderPlaylist(); updateMediaSession();
-      preloadNext();
-      // Sync state
-      player.classList.add('playing'); playIcon.style.display='none'; pauseIcon.style.display='block';
+  // animated mini-runner
+  const run = frame*0.18;
+  const rx = x+w*0.25;
+  const legAnim = Math.sin(run)*4;
+  ctx.fillStyle="#fff";
+  // torso
+  ctx.fillRect(rx-5,gy-22,10,14);
+  // legs
+  ctx.fillRect(rx-4,gy-8,4,8+legAnim);
+  ctx.fillRect(rx,  gy-8,4,8-legAnim);
+  // head
+  ctx.fillStyle=col;
+  ctx.fillRect(rx-4,gy-28,8,8);
+
+  // mini obstacle
+  const ox = x+w*0.65;
+  ctx.fillStyle="#ff4f4f";
+  ctx.fillRect(ox,gy-14,10,14);
+  ctx.fillStyle="#ff4f4f";
+  ctx.globalAlpha=0.3;
+  ctx.fillRect(ox,gy-14,10,14);
+  ctx.globalAlpha=1;
+}
+
+function drawBrixPreview(x,y,w,h,col) {
+  // mini bricks
+  const bw=14,bh=6,gap=3;
+  const cols=Math.floor((w-6)/(bw+gap));
+  const brixColors=["#ff4f4f","#ff8c4f","#ffee4f",col,"#4fb8ff"];
+  for(let r=0;r<5;r++){
+    for(let c=0;c<cols;c++){
+      ctx.fillStyle=brixColors[r%brixColors.length];
+      ctx.globalAlpha=0.9;
+      ctx.fillRect(x+3+c*(bw+gap), y+4+r*(bh+gap), bw, bh);
     }
   }
-  requestAnimationFrame(fade);
+  ctx.globalAlpha=1;
+
+  // ball
+  const bx = x+w*0.5 + Math.sin(frame*.06)*w*0.3;
+  const by = y+h*0.55 + Math.sin(frame*.09+1)*h*0.2;
+  ctx.fillStyle="#fff";
+  ctx.shadowColor=col;ctx.shadowBlur=6;
+  ctx.beginPath();ctx.arc(bx,by,4,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+
+  // paddle
+  const py=y+h*0.9;
+  ctx.fillStyle="#fff";
+  ctx.fillRect(x+w/2-18,py,36,5);
 }
 
-// ════════════════════════════════════════════
-//  METADATA & TIME UPDATE
-// ════════════════════════════════════════════
-audio.addEventListener('loadedmetadata', () => {
-  document.getElementById('duration').textContent = fmt(audio.duration);
-  trackRange.max = audio.duration;
-  audio.playbackRate = currentSpeed;
-});
+function updateMenu() {
+  frame++;
+}
 
-audio.addEventListener('timeupdate', () => {
-  if (scrubbing) return;
-  const dur = audio.duration||0;
-  setPct(dur?(audio.currentTime/dur)*100:0);
-  trackRange.value = audio.currentTime;
-  document.getElementById('currentTime').textContent = fmt(audio.currentTime);
-  updateLyrics(audio.currentTime);
-  // Trigger crossfade near end
-  if (crossfading && dur && dur-audio.currentTime <= FADE_DURATION && !audioNext.src.endsWith('')) {
-    const ni = getNextIdx(true); if(ni!==null) startCrossfade(ni);
+// ═══════════════════════════════════════════════════════════
+// VOID RUNNER
+// ═══════════════════════════════════════════════════════════
+const GROUND_Y   = P*0.78;
+const PLAYER_X   = P*0.18;
+const PLAYER_W   = 22;
+const PLAYER_TALL= 34;
+const PLAYER_H_DUCK=20;
+const JUMP_FORCE = -13.5;
+const GRAVITY    = 0.62;
+const TILE       = 8;
+
+const rStars = Array.from({length:40},()=>({
+  x:Math.random()*P, y:Math.random()*GROUND_Y*.9,
+  r:Math.random()*1.2+.3, speed:Math.random()*.4+.1, alpha:Math.random()*.6+.2,
+}));
+
+let rPlayer, rObstacles, rParticles;
+let rSpeed, rFrame, rScore, rHighScore=0, rLives;
+let rSpawnTimer, rNextSpawn, rDiffFrame, rCombo, rComboFlash;
+
+const RC = {
+  bg:"#000",fg:"#fff",accent:"#e8ff57",
+  dim:"#333",mid:"#666",danger:"#ff4f4f",
+};
+
+function runnerInit() {
+  rPlayer = {
+    y:GROUND_Y-PLAYER_TALL, vy:0,
+    jumping:false, ducking:false, flashTimer:0,
+    get h(){return this.ducking?PLAYER_H_DUCK:PLAYER_TALL},
+    get bottom(){return this.y+this.h},
+  };
+  rObstacles=[];rParticles=[];
+  rSpeed=3.2;rFrame=0;rScore=0;rLives=3;
+  rSpawnTimer=0;rNextSpawn=85;rDiffFrame=0;rCombo=0;rComboFlash=0;
+  updateLivesUI(rLives);
+  updateScoreUI(0);
+}
+
+function runnerSpawnObs() {
+  const type=Math.random()<.5?"A":"B";
+  const w=TILE*(Math.floor(Math.random()*3)+2);
+  if(type==="A"){
+    const h=TILE*(Math.floor(Math.random()*2)+2);
+    rObstacles.push({type,x:P+10,y:GROUND_Y-h,w,h,passed:false});
+  } else {
+    const h=TILE*2;
+    rObstacles.push({type,x:P+10,y:GROUND_Y-PLAYER_TALL*.55-h-2,w,h,passed:false});
+  }
+}
+
+function rSpawnParticles(x,y,col,n=8){
+  for(let i=0;i<n;i++) rParticles.push({
+    x,y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5-2,
+    life:1,col,r:Math.random()*3+1,
+  });
+}
+
+function rRectsOverlap(ax,ay,aw,ah,bx,by,bw,bh){
+  const m=5;
+  return ax+m<bx+bw-m && ax+aw-m>bx+m &&
+         ay+m<by+bh-m && ay+ah-m>by+bh*.05;
+}
+
+function runnerStart() {
+  runnerInit();
+  state=STATE.PLAY;
+  hideOverlay();
+}
+
+function runnerOver() {
+  state=STATE.OVER;
+  if(rScore>rHighScore) rHighScore=rScore;
+  setTimeout(()=>{
+    showOverlay("GAME<br>OVER",
+      '<span class="blink">PRESS ANY BUTTON</span>',
+      `SCORE ${Math.floor(rScore)}  HI ${Math.floor(rHighScore)}`);
+  },600);
+}
+
+function runnerUpdate() {
+  rFrame++;rDiffFrame++;
+  if(rDiffFrame%280===0) rSpeed=Math.min(rSpeed+.25,7.5);
+  rScore+=rSpeed*.04;
+  updateScoreUI(rScore);
+
+  for(const s of rStars){
+    s.x-=s.speed;
+    if(s.x<0){s.x=P;s.y=Math.random()*GROUND_Y*.9;}
+  }
+
+  if(!rPlayer.ducking||rPlayer.jumping) rPlayer.vy+=GRAVITY;
+  rPlayer.y+=rPlayer.vy;
+
+  const gf=GROUND_Y-rPlayer.h;
+  if(rPlayer.y>=gf){rPlayer.y=gf;rPlayer.vy=0;rPlayer.jumping=false;}
+  if(rPlayer.ducking&&!rPlayer.jumping) rPlayer.y=GROUND_Y-PLAYER_H_DUCK;
+  rPlayer.flashTimer=Math.max(0,rPlayer.flashTimer-1);
+
+  // jump input
+  if(leftDown && !rPlayer.jumping && rPlayer.bottom>=GROUND_Y-2){
+    rPlayer.vy=JUMP_FORCE;
+    rPlayer.jumping=true;
+    rSpawnParticles(PLAYER_X+PLAYER_W/2,rPlayer.bottom,RC.accent,5);
+  }
+  rPlayer.ducking = rightDown;
+
+  rSpawnTimer++;
+  if(rSpawnTimer>=rNextSpawn){
+    rSpawnTimer=0;
+    rNextSpawn=Math.max(50,100-Math.floor(rSpeed*5))+Math.floor(Math.random()*30);
+    runnerSpawnObs();
+  }
+
+  for(let i=rObstacles.length-1;i>=0;i--){
+    const ob=rObstacles[i];
+    ob.x-=rSpeed;
+    if(!ob.passed&&ob.x+ob.w<PLAYER_X){
+      ob.passed=true;rCombo++;rComboFlash=30;
+      rSpawnParticles(PLAYER_X,rPlayer.y+rPlayer.h/2,RC.accent,4);
+    }
+    if(ob.x+ob.w<-10){rObstacles.splice(i,1);continue;}
+    if(rPlayer.flashTimer===0){
+      if(rRectsOverlap(PLAYER_X,rPlayer.y,PLAYER_W,rPlayer.h,ob.x,ob.y,ob.w,ob.h)){
+        rPlayer.flashTimer=60;rCombo=0;
+        rSpawnParticles(PLAYER_X+PLAYER_W/2,rPlayer.y+rPlayer.h/2,RC.danger,12);
+        rLives--;updateLivesUI(rLives);
+        if(rLives<=0){runnerOver();return;}
+      }
+    }
+  }
+  for(let i=rParticles.length-1;i>=0;i--){
+    const p=rParticles[i];
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.life-=.04;
+    if(p.life<=0) rParticles.splice(i,1);
+  }
+  rComboFlash=Math.max(0,rComboFlash-1);
+}
+
+function runnerDraw() {
+  ctx.clearRect(0,0,P,P);
+  ctx.fillStyle=RC.bg;ctx.fillRect(0,0,P,P);
+
+  // stars
+  for(const s of rStars){
+    ctx.globalAlpha=s.alpha*(0.5+0.5*Math.sin(rFrame*.04+s.x));
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // ground
+  ctx.strokeStyle="#1c1c1c";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,GROUND_Y);ctx.lineTo(P,GROUND_Y);ctx.stroke();
+  ctx.strokeStyle="#555";ctx.lineWidth=1;
+  ctx.setLineDash([12,24]);ctx.lineDashOffset=-(rFrame*rSpeed*.5)%36;
+  ctx.beginPath();ctx.moveTo(0,GROUND_Y+6);ctx.lineTo(P,GROUND_Y+6);ctx.stroke();
+  ctx.setLineDash([]);
+  const grad=ctx.createLinearGradient(0,GROUND_Y,0,P);
+  grad.addColorStop(0,"#0a0a0a");grad.addColorStop(1,"#000");
+  ctx.fillStyle=grad;ctx.fillRect(0,GROUND_Y,P,P-GROUND_Y);
+
+  // obstacles
+  for(const ob of rObstacles){
+    ctx.save();
+    ctx.shadowColor=ob.type==="A"?RC.danger:"#4fb8ff";ctx.shadowBlur=8;
+    ctx.fillStyle=ob.type==="A"?RC.danger:"#4fb8ff";
+    const cols=Math.round(ob.w/TILE),rows=Math.round(ob.h/TILE);
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      ctx.globalAlpha=(r+c)%2===0?1:.7;
+      ctx.fillRect(ob.x+c*TILE,ob.y+r*TILE,TILE-1,TILE-1);
+    }
+    ctx.globalAlpha=1;ctx.restore();
+  }
+
+  // player
+  if(state===STATE.PLAY){
+    const x=PLAYER_X,ph=rPlayer.h;
+    const py=rPlayer.ducking?GROUND_Y-PLAYER_H_DUCK:rPlayer.y;
+    if(!(rPlayer.flashTimer>0&&Math.floor(rPlayer.flashTimer/3)%2===0)){
+      ctx.save();ctx.shadowColor=RC.accent;ctx.shadowBlur=12;
+      ctx.fillStyle=RC.fg;
+      if(rPlayer.ducking){
+        ctx.fillRect(x,py,PLAYER_W,PLAYER_H_DUCK);
+        ctx.fillStyle=RC.accent;ctx.fillRect(x+PLAYER_W*.55,py+3,PLAYER_W*.3,5);
+      } else {
+        const la=Math.sin(rFrame*.28)*3;
+        ctx.fillRect(x+4,py+ph-10,6,10+la);
+        ctx.fillRect(x+PLAYER_W-10,py+ph-10,6,10-la);
+        ctx.fillRect(x,py,PLAYER_W,ph-10);
+        ctx.fillStyle=RC.accent;ctx.fillRect(x+3,py,PLAYER_W-6,12);
+        ctx.fillStyle=RC.bg;ctx.fillRect(x+6,py+3,PLAYER_W-12,6);
+      }
+      ctx.restore();
+    }
+  }
+
+  // particles
+  for(const p of rParticles){
+    ctx.globalAlpha=p.life;ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // HUD
+  if(state===STATE.PLAY){
+    const sp=Math.min((rSpeed-3.2)/4,1);
+    ctx.fillStyle="#222";ctx.fillRect(P-72,14,60,3);
+    ctx.fillStyle=RC.accent;ctx.fillRect(P-72,14,60*sp,3);
+    if(rCombo>1&&rComboFlash>0){
+      ctx.globalAlpha=Math.min(rComboFlash/20,1);
+      ctx.font="9px 'Press Start 2P',monospace";
+      ctx.fillStyle=RC.accent;ctx.textAlign="left";
+      ctx.fillText("×"+rCombo,PLAYER_X+PLAYER_W+8,rPlayer.y-5);
+      ctx.globalAlpha=1;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// BRIX (Breakout)
+// ═══════════════════════════════════════════════════════════
+const BC = {
+  bg:"#000",fg:"#fff",accent:"#57e8ff",
+  dim:"#222",mid:"#555",
+  brick:["#ff4f4f","#ff8a4f","#ffe04f","#57e8ff","#a057ff"],
+};
+
+const B_MARGIN   = 15;
+const B_COLS     = 8;
+const B_GAP      = 4;
+const B_BW       = Math.floor((P - B_MARGIN*2 - B_GAP*(B_COLS-1)) / B_COLS); // 42
+const B_BH       = 13;
+const B_TOP      = 52;
+const B_ROW_GAP  = 5;
+
+const PADDLE_H   = 9;
+const PADDLE_Y   = P - 24;
+const BALL_R     = 6;
+const PADDLE_SPD = 5.5;
+
+let bBricks, bBall, bPaddle, bScore, bHighScore=0, bLives, bLevel;
+let bParticles, bFrame;
+let bLaunch;
+
+function brixInit() {
+  bLevel  = 1;
+  bScore  = 0;
+  bLives  = 3;
+  bFrame  = 0;
+  bParticles = [];
+  bBuildLevel();
+  updateLivesUI(bLives);
+  updateScoreUI(0);
+}
+
+function bBuildLevel() {
+  bBricks = [];
+  const rows = Math.min(4 + bLevel, 8);
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<B_COLS;c++){
+      bBricks.push({
+        x: B_MARGIN + c*(B_BW+B_GAP),
+        y: B_TOP + r*(B_BH+B_ROW_GAP),
+        w: B_BW, h: B_BH,
+        col: BC.brick[r % BC.brick.length],
+        alive: true,
+      });
+    }
+  }
+  bResetBall();
+}
+
+function bResetBall() {
+  bPaddle = { x: P/2-40, w: Math.max(50, 80-bLevel*5), y: PADDLE_Y };
+  const angle = -Math.PI/2 + (Math.random()-.5)*.8;
+  const spd   = 3.5 + bLevel*.4;
+  bBall = {
+    x: P/2, y: PADDLE_Y-BALL_R-2,
+    vx: Math.cos(angle)*spd,
+    vy: Math.sin(angle)*spd,
+    r: BALL_R,
+  };
+  bLaunch = false; // wait for button press to launch
+}
+
+function bSpawnParticles(x,y,col,n=10){
+  for(let i=0;i<n;i++) bParticles.push({
+    x,y,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6-1.5,
+    life:1,col,r:Math.random()*3+1,
+  });
+}
+
+function brixStart() {
+  brixInit();
+  state=STATE.PLAY;
+  bLaunch=false;
+  hideOverlay();
+}
+
+function brixOver() {
+  state=STATE.OVER;
+  if(bScore>bHighScore) bHighScore=bScore;
+  setTimeout(()=>{
+    showOverlay("GAME<br>OVER",
+      '<span class="blink">PRESS ANY BUTTON</span>',
+      `SCORE ${Math.floor(bScore)}  HI ${Math.floor(bHighScore)}`);
+  },600);
+}
+
+function brixUpdate() {
+  bFrame++;
+
+  // paddle movement
+  const ph_half = bPaddle.w/2;
+  if(leftDown)  bPaddle.x = Math.max(0, bPaddle.x - PADDLE_SPD);
+  if(rightDown) bPaddle.x = Math.min(P - bPaddle.w, bPaddle.x + PADDLE_SPD);
+
+  // launch on any press
+  if(!bLaunch && (leftDown||rightDown)) {
+    bLaunch=true;
+    const angle=-Math.PI/2+(Math.random()-.5)*.6;
+    const spd=3.5+bLevel*.4;
+    bBall.vx=Math.cos(angle)*spd;
+    bBall.vy=Math.sin(angle)*spd;
+  }
+
+  if(!bLaunch) {
+    bBall.x = bPaddle.x + bPaddle.w/2;
+    bBall.y = PADDLE_Y - BALL_R - 1;
+  } else {
+    bBall.x += bBall.vx;
+    bBall.y += bBall.vy;
+  }
+
+  // wall bounces
+  if(bBall.x-bBall.r<0){bBall.x=bBall.r;bBall.vx=Math.abs(bBall.vx);}
+  if(bBall.x+bBall.r>P){bBall.x=P-bBall.r;bBall.vx=-Math.abs(bBall.vx);}
+  if(bBall.y-bBall.r<0){bBall.y=bBall.r;bBall.vy=Math.abs(bBall.vy);}
+
+  // paddle collision
+  const px=bPaddle.x, py=PADDLE_Y, pw=bPaddle.w;
+  if(bBall.vy>0 &&
+     bBall.y+bBall.r>=py && bBall.y+bBall.r<=py+PADDLE_H+4 &&
+     bBall.x>=px-2 && bBall.x<=px+pw+2){
+    bBall.y=py-bBall.r-1;
+    bBall.vy=-Math.abs(bBall.vy);
+    // angle based on hit position
+    const hit=(bBall.x-(px+pw/2))/(pw/2);
+    bBall.vx = hit * (3.5+bLevel*.3);
+    const spd=Math.hypot(bBall.vx,bBall.vy);
+    const tspd=3.5+bLevel*.4;
+    if(spd>0){bBall.vx=bBall.vx/spd*tspd;bBall.vy=bBall.vy/spd*tspd;}
+    bSpawnParticles(bBall.x,py,BC.accent,5);
+  }
+
+  // fell off bottom
+  if(bBall.y-bBall.r>P+10){
+    bLives--;updateLivesUI(bLives);
+    bSpawnParticles(bBall.x,P-20,BC.accent,12);
+    if(bLives<=0){brixOver();return;}
+    bResetBall();
+  }
+
+  // brick collision
+  for(const br of bBricks){
+    if(!br.alive) continue;
+    const bl=br.x,bt=br.y,brr=br.x+br.w,bb=br.y+br.h;
+    const nx=Math.max(bl,Math.min(bBall.x,brr));
+    const ny=Math.max(bt,Math.min(bBall.y,bb));
+    const dx=bBall.x-nx,dy=bBall.y-ny;
+    if(dx*dx+dy*dy<bBall.r*bBall.r){
+      br.alive=false;
+      bScore+=10*bLevel;
+      updateScoreUI(bScore);
+      bSpawnParticles(br.x+br.w/2,br.y+br.h/2,br.col,8);
+      // reflect
+      const overlapX=Math.min(bBall.x-bl,brr-bBall.x);
+      const overlapY=Math.min(bBall.y-bt,bb-bBall.y);
+      if(overlapX<overlapY) bBall.vx=-bBall.vx;
+      else bBall.vy=-bBall.vy;
+    }
+  }
+
+  // all cleared?
+  if(bBricks.every(b=>!b.alive)){
+    bLevel++;
+    bBuildLevel();
+    showOverlay(`LEVEL ${bLevel}`,'<span class="blink">PRESS TO CONTINUE</span>');
+    state=STATE.IDLE;
+    return;
+  }
+
+  // particles
+  for(let i=bParticles.length-1;i>=0;i--){
+    const p=bParticles[i];
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.18;p.life-=.035;
+    if(p.life<=0) bParticles.splice(i,1);
+  }
+}
+
+function brixDraw() {
+  ctx.clearRect(0,0,P,P);
+  ctx.fillStyle=BC.bg;ctx.fillRect(0,0,P,P);
+
+  // grid bg glow
+  const bg=ctx.createRadialGradient(P/2,P*.3,20,P/2,P*.3,P*.6);
+  bg.addColorStop(0,"#57e8ff08");bg.addColorStop(1,"transparent");
+  ctx.fillStyle=bg;ctx.fillRect(0,0,P,P);
+
+  // bricks
+  for(const br of bBricks){
+    if(!br.alive) continue;
+    ctx.save();
+    ctx.shadowColor=br.col;ctx.shadowBlur=6;
+    ctx.fillStyle=br.col;ctx.globalAlpha=.95;
+    ctx.fillRect(br.x+1,br.y+1,br.w-2,br.h-2);
+    // shine
+    ctx.fillStyle="rgba(255,255,255,.18)";
+    ctx.fillRect(br.x+2,br.y+2,br.w-4,3);
+    ctx.globalAlpha=1;ctx.restore();
+  }
+
+  // paddle
+  ctx.save();
+  ctx.shadowColor=BC.accent;ctx.shadowBlur=14;
+  const padGrad=ctx.createLinearGradient(bPaddle.x,0,bPaddle.x+bPaddle.w,0);
+  padGrad.addColorStop(0,"#fff");padGrad.addColorStop(.5,BC.accent);padGrad.addColorStop(1,"#fff");
+  ctx.fillStyle=padGrad;
+  const pr=PADDLE_H/2;
+  ctx.beginPath();
+  ctx.roundRect(bPaddle.x,PADDLE_Y,bPaddle.w,PADDLE_H,pr);
+  ctx.fill();
+  ctx.restore();
+
+  // ball
+  ctx.save();
+  ctx.shadowColor=BC.accent;ctx.shadowBlur=16;
+  const ballGrad=ctx.createRadialGradient(bBall.x-1,bBall.y-1,1,bBall.x,bBall.y,bBall.r);
+  ballGrad.addColorStop(0,"#fff");ballGrad.addColorStop(1,BC.accent);
+  ctx.fillStyle=ballGrad;
+  ctx.beginPath();ctx.arc(bBall.x,bBall.y,bBall.r,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+
+  // trail dots
+  if(bLaunch){
+    for(let i=1;i<=4;i++){
+      const tx=bBall.x-bBall.vx*i*.7;
+      const ty=bBall.y-bBall.vy*i*.7;
+      ctx.globalAlpha=(1-i/5)*.5;
+      ctx.fillStyle=BC.accent;
+      ctx.beginPath();ctx.arc(tx,ty,bBall.r*.5,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  } else {
+    // aim guide dots
+    ctx.globalAlpha=.25;
+    ctx.fillStyle=BC.accent;
+    for(let i=1;i<=6;i++){
+      const angle=-Math.PI/2;
+      ctx.beginPath();
+      ctx.arc(bBall.x,bBall.y-i*14,2,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // particles
+  for(const p of bParticles){
+    ctx.globalAlpha=p.life;ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // HUD: level
+  if(state===STATE.PLAY){
+    ctx.font="7px 'Press Start 2P',monospace";
+    ctx.fillStyle="#333";ctx.textAlign="right";
+    ctx.fillText("LVL "+bLevel, P-14, P-8);
+    ctx.textAlign="left";
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// INPUT
+// ═══════════════════════════════════════════════════════════
+function onLeftDown(e){
+  e.preventDefault();
+  btnLeft.classList.add("pressed");
+  leftDown=true;
+  handleAnyPress("left");
+}
+function onLeftUp(e){
+  e.preventDefault();
+  btnLeft.classList.remove("pressed");
+  leftDown=false;
+}
+function onRightDown(e){
+  e.preventDefault();
+  btnRight.classList.add("pressed");
+  rightDown=true;
+  handleAnyPress("right");
+}
+function onRightUp(e){
+  e.preventDefault();
+  btnRight.classList.remove("pressed");
+  rightDown=false;
+}
+
+function handleAnyPress(side) {
+  if(scene===SCENE.MENU){
+    if(side==="left")  goToGame("runner");
+    if(side==="right") goToGame("brix");
+    return;
+  }
+  if(state===STATE.IDLE||state===STATE.OVER){
+    if(scene===SCENE.RUNNER) runnerStart();
+    else if(scene===SCENE.BRIX){
+      if(state===STATE.IDLE){
+        // resume from level-up
+        bLaunch=false;hideOverlay();state=STATE.PLAY;
+      } else brixStart();
+    }
+    return;
+  }
+  // runner: left=jump handled in update
+}
+
+function goToGame(which) {
+  if(which==="runner"){
+    scene=SCENE.RUNNER;
+    setTheme("runner");
+    state=STATE.IDLE;
+    runnerInit();
+    showOverlay("VOID<br>RUNNER","JUMP to leap over blocks<br>DUCK to slide under beams");
+  } else {
+    scene=SCENE.BRIX;
+    setTheme("brix");
+    state=STATE.IDLE;
+    brixInit();
+    showOverlay("BRIX","LEFT & RIGHT to move paddle<br>PRESS TO LAUNCH");
+  }
+}
+
+menuBtn.addEventListener("click",()=>{
+  scene=SCENE.MENU;state=STATE.IDLE;
+  setTheme("menu");leftDown=false;rightDown=false;
+  hideOverlay();
+});
+menuBtn.addEventListener("touchend",e=>{e.preventDefault();menuBtn.click();},{passive:false});
+
+btnLeft.addEventListener("touchstart",onLeftDown,{passive:false});
+btnLeft.addEventListener("touchend",  onLeftUp,  {passive:false});
+btnLeft.addEventListener("mousedown",onLeftDown);
+btnLeft.addEventListener("mouseup",  onLeftUp);
+btnRight.addEventListener("touchstart",onRightDown,{passive:false});
+btnRight.addEventListener("touchend",  onRightUp,  {passive:false});
+btnRight.addEventListener("mousedown",onRightDown);
+btnRight.addEventListener("mouseup",  onRightUp);
+
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowLeft"||e.key==="a")  onLeftDown(e);
+  if(e.key==="ArrowRight"||e.key==="d") onRightDown(e);
+  if(scene===SCENE.RUNNER){
+    if(e.key==="ArrowUp"||e.key==="w"||e.key===" ") onLeftDown(e);
+    if(e.key==="ArrowDown"||e.key==="s") onRightDown(e);
+  }
+});
+document.addEventListener("keyup",e=>{
+  if(e.key==="ArrowLeft"||e.key==="a")  onLeftUp(e);
+  if(e.key==="ArrowRight"||e.key==="d") onRightUp(e);
+  if(scene===SCENE.RUNNER){
+    if(e.key==="ArrowUp"||e.key==="w"||e.key===" ") onLeftUp(e);
+    if(e.key==="ArrowDown"||e.key==="s") onRightUp(e);
   }
 });
 
-// ════════════════════════════════════════════
-//  SCRUB
-// ════════════════════════════════════════════
-trackRange.addEventListener('mousedown',  ()=>{ scrubbing=true;  trackWrap.classList.add('dragging'); });
-trackRange.addEventListener('touchstart', ()=>{ scrubbing=true;  trackWrap.classList.add('dragging'); },{passive:true});
-function stopScrub(){ if(!scrubbing)return; scrubbing=false; trackWrap.classList.remove('dragging'); audio.currentTime=parseFloat(trackRange.value); }
-window.addEventListener('mouseup', stopScrub);
-window.addEventListener('touchend', stopScrub);
-trackRange.addEventListener('input', ()=>{
-  const dur=audio.duration||1;
-  setPct((parseFloat(trackRange.value)/dur)*100);
-  document.getElementById('currentTime').textContent=fmt(parseFloat(trackRange.value));
-});
-
-// ════════════════════════════════════════════
-//  SHUFFLE / REPEAT
-// ════════════════════════════════════════════
-document.getElementById('shuffleBtn').addEventListener('click', e=>{
-  shuffleOn=!shuffleOn; e.currentTarget.classList.toggle('active',shuffleOn);
-  if(shuffleOn) buildShuffle();
-});
-document.getElementById('repeatBtn').addEventListener('click', e=>{
-  repeatOn=!repeatOn; e.currentTarget.classList.toggle('active',repeatOn);
-});
-
-// ════════════════════════════════════════════
-//  SPEED
-// ════════════════════════════════════════════
-const speedModal = document.getElementById('speedModal');
-const speedGrid  = document.getElementById('speedGrid');
-
-SPEEDS.forEach(s=>{
-  const btn = document.createElement('button');
-  btn.className='speed-opt'; btn.textContent=s+'×';
-  if(s===1) btn.classList.add('selected');
-  btn.addEventListener('click',()=>{
-    currentSpeed=s; audio.playbackRate=s; audioNext.playbackRate=s;
-    speedBtn.textContent=s+'×';
-    speedBtn.classList.toggle('active',s!==1);
-    speedGrid.querySelectorAll('.speed-opt').forEach(b=>b.classList.remove('selected'));
-    btn.classList.add('selected');
-    closeModal(speedModal);
-  });
-  speedGrid.appendChild(btn);
-});
-
-speedBtn.addEventListener('click',()=>openModal(speedModal));
-document.getElementById('speedModalClose').addEventListener('click',()=>closeModal(speedModal));
-
-// ════════════════════════════════════════════
-//  SLEEP TIMER
-// ════════════════════════════════════════════
-const sleepModal = document.getElementById('sleepModal');
-const sleepGrid  = document.getElementById('sleepGrid');
-
-SLEEP_OPTS.forEach(m=>{
-  const btn=document.createElement('button');
-  btn.className='sleep-opt'; btn.textContent=m+' min';
-  btn.addEventListener('click',()=>{
-    setSleepTimer(m*60);
-    sleepGrid.querySelectorAll('.sleep-opt').forEach(b=>b.classList.remove('selected'));
-    btn.classList.add('selected');
-    closeModal(sleepModal);
-  });
-  sleepGrid.appendChild(btn);
-});
-
-document.getElementById('sleepOffBtn').addEventListener('click',()=>{ clearSleepTimer(); closeModal(sleepModal); });
-document.getElementById('sleepBtn').addEventListener('click',()=>openModal(sleepModal));
-document.getElementById('sleepModalClose').addEventListener('click',()=>closeModal(sleepModal));
-
-function setSleepTimer(seconds){
-  clearSleepTimer();
-  sleepSeconds=seconds;
-  sleepBadge.classList.add('visible');
-  updateSleepBadge();
-  sleepInterval=setInterval(()=>{
-    sleepSeconds--;
-    if(sleepSeconds<=0){ audio.pause(); clearSleepTimer(); }
-    else updateSleepBadge();
-  },1000);
-}
-function clearSleepTimer(){ clearInterval(sleepInterval); sleepTimer=null; sleepSeconds=0; sleepBadge.classList.remove('visible'); sleepGrid.querySelectorAll('.sleep-opt').forEach(b=>b.classList.remove('selected')); }
-function updateSleepBadge(){ const m=Math.floor(sleepSeconds/60),s=sleepSeconds%60; sleepBadge.textContent=m+':'+(s<10?'0':'')+s; }
-
-// ════════════════════════════════════════════
-//  LYRICS
-// ════════════════════════════════════════════
-function renderLyrics(){
-  lyricsScroll.innerHTML='';
-  const lyrics=TRACKS[currentIdx].lyrics;
-  lyrics.forEach((l,i)=>{
-    const div=document.createElement('div');
-    div.className='lyric-line'; div.textContent=l.text; div.dataset.idx=i;
-    lyricsScroll.appendChild(div);
-  });
-}
-function updateLyrics(t){
-  if(!lyricsOpen) return;
-  const lyrics=TRACKS[currentIdx].lyrics;
-  let activeIdx=0;
-  for(let i=0;i<lyrics.length;i++){ if(lyrics[i].t<=t) activeIdx=i; }
-  lyricsScroll.querySelectorAll('.lyric-line').forEach((el,i)=>{
-    el.classList.toggle('active',i===activeIdx);
-    if(i===activeIdx) el.scrollIntoView({behavior:'smooth',block:'nearest'});
-  });
+// ═══════════════════════════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════════════════════════
+function loop() {
+  if(scene===SCENE.MENU){
+    updateMenu();
+    drawMenu();
+  } else if(scene===SCENE.RUNNER){
+    if(state===STATE.PLAY) runnerUpdate();
+    runnerDraw();
+  } else if(scene===SCENE.BRIX){
+    if(state===STATE.PLAY) brixUpdate();
+    brixDraw();
+  }
+  requestAnimationFrame(loop);
 }
 
-document.getElementById('lyricsBtn').addEventListener('click', e=>{
-  lyricsOpen=!lyricsOpen;
-  lyricsPanel.classList.toggle('open',lyricsOpen);
-  e.currentTarget.classList.toggle('active',lyricsOpen);
-});
+// ── INIT ──
+setTheme("menu");
+loop();
 
-
-// ════════════════════════════════════════════
-//  MEDIA SESSION API
-// ════════════════════════════════════════════
-function updateMediaSession(){
-  if(!('mediaSession' in navigator)) return;
-  const t=TRACKS[currentIdx];
-  navigator.mediaSession.metadata=new MediaMetadata({
-    title: t.title, artist: t.artist || " ", album: 'My Playlist',
-    artwork:[{src:t.art, sizes:'512x512', type:'image/jpeg'}]
-  });
-  navigator.mediaSession.setActionHandler('play',  ()=>audio.play().catch(()=>{}));
-  navigator.mediaSession.setActionHandler('pause', ()=>audio.pause());
-  navigator.mediaSession.setActionHandler('nexttrack', goNext);
-  navigator.mediaSession.setActionHandler('previoustrack', goPrev);
-  navigator.mediaSession.setActionHandler('seekto', e=>{ audio.currentTime=e.seekTime; });
-}
-
-// ════════════════════════════════════════════
-//  PLAYLIST UI
-// ════════════════════════════════════════════
-function renderPlaylist(){
-  const el=document.getElementById('playlist');
-  el.innerHTML='';
-  TRACKS.forEach((t,i)=>{
-    const div=document.createElement('div');
-    div.className='pl-item'+(i===currentIdx?' active':'');
-    div.innerHTML=`
-      <img class="pl-thumb" src="${t.art}" alt="">
-      <div class="pl-info"><div class="pl-title">${t.title}</div><div class="pl-artist"></div></div>
-      <span class="pl-dur" id="plDur${i}">–:––</span>`;
-    div.addEventListener('click',()=>loadTrack(i));
-    el.appendChild(div);
-    // Load duration
-    const tmp=new Audio(t.src);
-    tmp.addEventListener('loadedmetadata',()=>{ const d=document.getElementById('plDur'+i); if(d) d.textContent=fmt(tmp.duration); });
-  });
-}
-
-// ════════════════════════════════════════════
-//  VOLUME
-// ════════════════════════════════════════════
-audio.volume=parseFloat(volRange.value);
-volRange.addEventListener('input',e=>{ audio.volume=e.target.value; volFill.style.width=(e.target.value*100)+'%'; });
-
-// ════════════════════════════════════════════
-//  HEART
-// ════════════════════════════════════════════
-heartBtn.addEventListener('click',()=>{ liked=!liked; heartBtn.classList.toggle('liked',liked); });
-
-// ════════════════════════════════════════════
-//  SHARE
-// ════════════════════════════════════════════
-document.getElementById('shareBtn').addEventListener('click',async()=>{
-  const t=TRACKS[currentIdx];
-  if(navigator.share){ try{ await navigator.share({title:t.title,url:location.href}); }catch{} }
-  else{ await navigator.clipboard.writeText(location.href).catch(()=>{}); }
-});
-
-// ════════════════════════════════════════════
-//  MODAL HELPERS
-// ════════════════════════════════════════════
-function openModal(el){ el.classList.add('open'); }
-function closeModal(el){ el.classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(m=>{ m.addEventListener('click',e=>{ if(e.target===m) closeModal(m); }); });
-
-// ════════════════════════════════════════════
-//  CROSSFADE TOGGLE (hold shuffle for 1s to toggle)
-// ════════════════════════════════════════════
-let shuffleHold;
-document.getElementById('shuffleBtn').addEventListener('mousedown',()=>{ shuffleHold=setTimeout(()=>{ crossfading=!crossfading; document.getElementById('shuffleBtn').style.outline=crossfading?'1px solid #fc3c44':'none'; },800); });
-document.getElementById('shuffleBtn').addEventListener('mouseup',()=>clearTimeout(shuffleHold));
-
-// ════════════════════════════════════════════
-//  KEYBOARD
-// ════════════════════════════════════════════
-window.addEventListener('keydown', e=>{
-  if(document.activeElement.tagName==='INPUT') return;
-  if(e.code==='Space')      { e.preventDefault(); togglePlay(); }
-  if(e.code==='ArrowRight') { e.preventDefault(); audio.currentTime=Math.min(audio.duration||0,audio.currentTime+15); }
-  if(e.code==='ArrowLeft')  { e.preventDefault(); audio.currentTime=Math.max(0,audio.currentTime-15); }
-  if(e.code==='ArrowUp')    { e.preventDefault(); audio.volume=Math.min(1,audio.volume+0.05); volRange.value=audio.volume; volFill.style.width=(audio.volume*100)+'%'; }
-  if(e.code==='ArrowDown')  { e.preventDefault(); audio.volume=Math.max(0,audio.volume-0.05); volRange.value=audio.volume; volFill.style.width=(audio.volume*100)+'%'; }
-  if(e.code==='KeyN')       goNext();
-  if(e.code==='KeyP')       goPrev();
-});
-
-// ════════════════════════════════════════════
-//  AUTOPLAY
-// ════════════════════════════════════════════
-function tryAutoplay(){
-  audio.play().catch(()=>{
-    const unlock=()=>{ audio.play().catch(()=>{}); };
-    document.addEventListener('click',    unlock,{once:true});
-    document.addEventListener('touchstart',unlock,{once:true,passive:true});
-  });
-}
-
-// ════════════════════════════════════════════
-//  INIT
-// ════════════════════════════════════════════
-renderPlaylist();
-renderLyrics();
-loadTrack(0, false);
-window.addEventListener('load', tryAutoplay);
+})();
 </script>
 </body>
-  </html>
+</html>
+
